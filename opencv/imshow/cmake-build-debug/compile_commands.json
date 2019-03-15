@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/wang/CLionProjects/intelRealsense/opencv/imshow/cmake-build-debug",
+  "command": "/usr/bin/c++  -DOPENCV_TRAITS_ENABLE_DEPRECATED -isystem /usr/local/include -isystem /usr/local/include/opencv   -std=c++11 -g   -o CMakeFiles/rs-imshow.dir/rs-imshow.cpp.o -c /home/wang/CLionProjects/intelRealsense/opencv/imshow/rs-imshow.cpp",
+  "file": "/home/wang/CLionProjects/intelRealsense/opencv/imshow/rs-imshow.cpp"
+}
+]
