@@ -25,6 +25,7 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/surface/convex_hull.h>
 #include <pcl/segmentation/extract_polygonal_prism_data.h>
+#include <pcl/filters/conditional_removal.h>
 //TdLib
 #include "TdLibrary/threadSafeStructure.h"
 #include "TdLibrary/realsense.h"
@@ -346,6 +347,31 @@ int main(int argc, char * argv[]) try
                     extract.setIndices(objectIndices);
                     extract.filter(*objects);
                 }
+                        //color filter
+                int rMax = 256;
+                int rMin = 50;
+                int gMax = 256;
+                int gMin = 100;
+                int bMax = 100;
+                int bMin = 0;
+                pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr color_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+                //the point's r value must be less than (LT) 256.
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::LT, rMax)));
+                //the point's r value must be greater than (GT) 200.
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::GT, rMin)));
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::LT, gMax)));
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::GT, gMin)));
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::LT, bMax)));
+                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::GT, bMin)));
+
+                // build the filter
+                pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+                condrem.setCondition (color_cond);
+                condrem.setInputCloud (objects);
+                condrem.setKeepOrganized(true);
+
+                // apply filter
+                condrem.filter (*objects);
 
             }
 
