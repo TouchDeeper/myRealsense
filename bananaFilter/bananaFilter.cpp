@@ -19,6 +19,12 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/filters/passthrough.h>
 #include <pcl/features/integral_image_normal.h>
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/surface/convex_hull.h>
+#include <pcl/segmentation/extract_polygonal_prism_data.h>
 //TdLib
 #include "TdLibrary/threadSafeStructure.h"
 #include "TdLibrary/realsense.h"
@@ -239,6 +245,10 @@ int main(int argc, char * argv[]) try
         cv_queue.enqueue(current_frameset);
 //        rs2_intrinsics intr_;
 //        intri_queue.wait_and_pop(intr_);
+        // Objects for storing the point inliers of plane segmentation.
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane(new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr convexHull(new pcl::PointCloud<pcl::PointXYZRGB>);
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr objects(new pcl::PointCloud<pcl::PointXYZRGB>);
         if(current_frameset)
         {
 
@@ -261,7 +271,7 @@ int main(int argc, char * argv[]) try
                 Cloud_Filter.setFilterLimits (0.0, 1.5);      // Set accepted interval values
                 Cloud_Filter.filter (*p_pcl_point_cloud);              // Filtered Cloud Outputted
 
-            //Fast normal estimation
+                            //Fast normal estimation
 //            pcl::IntegralImageNormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
 //            normalEstimation.setInputCloud(p_pcl_point_cloud);
 //
@@ -276,8 +286,71 @@ int main(int argc, char * argv[]) try
 //            // Calculate the normals.
 //            normalEstimation.compute(*normals);
 
+                            //plane segmentation
+            // Object for storing the plane model coefficients.
+            pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+            // Create the segmentation object.
+            pcl::SACSegmentation<pcl::PointXYZRGB> segmentation;
+            segmentation.setInputCloud(p_pcl_point_cloud);
+            // Configure the object to look for a plane.
+            segmentation.setModelType(pcl::SACMODEL_PLANE);
+            // Use RANSAC method.
+            segmentation.setMethodType(pcl::SAC_RANSAC);
+            // Set the maximum allowed distance to the model.
+            segmentation.setDistanceThreshold(0.005);
+            // Enable model coefficient refinement (optional).
+            segmentation.setOptimizeCoefficients(true);
+
+            pcl::PointIndices::Ptr planeIndices(new pcl::PointIndices);
+            segmentation.segment(*planeIndices, *coefficients);
+
+            if (planeIndices->indices.size() == 0)
+                std::cout << "Could not find any points that fitted the plane model." << std::endl;
+            else
+            {
+//                std::cerr << "Model coefficients: " << coefficients->values[0] << " "
+//                          << coefficients->values[1] << " "
+//                          << coefficients->values[2] << " "
+//                          << coefficients->values[3] << std::endl;
+
+                // Copy all inliers of the model to another cloud.
+//                pcl::copyPointCloud<pcl::PointXYZRGB>(*cloud, inlierIndices, *inlierPoints);
+                // Copy the points of the plane to a new cloud.
+                pcl::ExtractIndices<pcl::PointXYZRGB> extract;
+                extract.setInputCloud(p_pcl_point_cloud);
+                extract.setIndices(planeIndices);
+                extract.filter(*plane);
+
+                // Retrieve the convex hull.
+                pcl::ConvexHull<pcl::PointXYZRGB> hull;
+                hull.setInputCloud(plane);
+                // Make sure that the resulting hull is bidimensional.
+                hull.setDimension(2);
+                hull.reconstruct(*convexHull);
+
+                // Redundant check.
+                if (hull.getDimension() == 2)
+                {
+                    // Prism object.
+                    pcl::ExtractPolygonalPrismData<pcl::PointXYZRGB> prism;
+                    prism.setInputCloud(p_pcl_point_cloud);
+                    prism.setInputPlanarHull(convexHull);
+                    // First parameter: minimum Z value. Set to 0, segments objects lying on the plane (can be negative).
+                    // Second parameter: maximum Z value, set to 10cm. Tune it according to the height of the objects you expect.
+                    prism.setHeightLimits(0.007f, 0.04f);
+                    pcl::PointIndices::Ptr objectIndices(new pcl::PointIndices);
+
+                    prism.segment(*objectIndices);
+
+                    // Get and show all points retrieved by the hull.
+                    extract.setIndices(objectIndices);
+                    extract.filter(*objects);
+                }
+
+            }
+
         }
-        viewer->updatePointCloud(p_pcl_point_cloud);
+        viewer->updatePointCloud(objects);
         // Display one normal out of 20, as a line of length 3cm.
         //Fast normal estimation
 //        viewer->removePointCloud("normals");
