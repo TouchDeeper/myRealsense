@@ -26,13 +26,20 @@
 #include <pcl/surface/convex_hull.h>
 #include <pcl/segmentation/extract_polygonal_prism_data.h>
 #include <pcl/filters/conditional_removal.h>
+#include <pcl/features/normal_3d.h>
+#include <pcl/common/centroid.h>
+#include <pcl/features/crh.h>
+#include <pcl/segmentation/region_growing.h>
 //TdLib
 #include "TdLibrary/threadSafeStructure.h"
 #include "TdLibrary/realsense.h"
+
 typedef pcl::PointXYZRGB RGB_Cloud;
 typedef pcl::PointCloud<RGB_Cloud> point_cloud;
 typedef point_cloud::Ptr cloud_pointer;
 typedef point_cloud::Ptr prevCloud;
+// A handy typedef.
+typedef pcl::Histogram<90> CRH90;
 using pixel = std::pair<int, int>;
 //Global variable
 int i = 1; // Index for incremental file name
@@ -237,8 +244,7 @@ int main(int argc, char * argv[]) try
     // Create the PCL point cloud visualizer
     std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createRGBVisualizer(p_pcl_point_cloud);
     viewer->registerKeyboardCallback (keyboardEventOccurred, (void*)&p_pcl_point_cloud);
-    // Object for storing the normals.
-    pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+
 
     while (!viewer->wasStopped() && alive) {
         static rs2::frameset current_frameset;
@@ -250,6 +256,12 @@ int main(int argc, char * argv[]) try
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr plane(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr convexHull(new pcl::PointCloud<pcl::PointXYZRGB>);
         pcl::PointCloud<pcl::PointXYZRGB>::Ptr objects(new pcl::PointCloud<pcl::PointXYZRGB>);
+        // Object for storing the normals.
+        pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
+        //object for storing the colored cluster
+        pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud;
+        //object for storing the banana cluster
+        pcl::PointCloud<pcl::PointXYZRGB>::Ptr banana(new pcl::PointCloud<pcl::PointXYZRGB>);
         if(current_frameset)
         {
 
@@ -347,7 +359,7 @@ int main(int argc, char * argv[]) try
                     extract.setIndices(objectIndices);
                     extract.filter(*objects);
                 }
-                        //color filter
+                                /*color filter*/
                 int rMax = 256;
                 int rMin = 50;
                 int gMax = 256;
@@ -373,15 +385,79 @@ int main(int argc, char * argv[]) try
                 // apply filter
                 condrem.filter (*objects);
 
+
+                                   /*region growing filter */
+                // kd-tree object for searches.
+                pcl::search::KdTree<pcl::PointXYZRGB>::Ptr regionGrowingTree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+                regionGrowingTree->setInputCloud(objects);
+
+                // Estimate the normals.
+                pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
+                normalEstimation.setInputCloud(objects);
+                normalEstimation.setRadiusSearch(0.03);
+                normalEstimation.setSearchMethod(regionGrowingTree);
+                normalEstimation.compute(*normals);
+
+                // Region growing clustering object.
+                pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> clustering;
+                clustering.setMinClusterSize(200);
+                clustering.setMaxClusterSize(10000);
+                clustering.setSearchMethod(regionGrowingTree);
+                clustering.setNumberOfNeighbours(30);
+                clustering.setInputCloud(objects);
+                clustering.setInputNormals(normals);
+                // Set the angle in radians that will be the smoothness threshold
+                // (the maximum allowable deviation of the normals).
+                clustering.setSmoothnessThreshold(7.0 / 180.0 * M_PI); // 7 degrees.
+                // Set the curvature threshold. The disparity between curvatures will be
+                // tested after the normal deviation check has passed.
+                clustering.setCurvatureThreshold(1.0);
+
+                std::vector <pcl::PointIndices> clusters;
+                clustering.extract(clusters);
+                int MaxClusterIndice = 0;
+                int MaxClusterSize = 0;
+                int ClusterIndice = 0;
+                for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
+                {
+
+//                    // ...add all its points to a new cloud...
+//                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
+//                    for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
+//                        cluster->points.push_back(cloud->points[*point]);
+//                    cluster->width = cluster->points.size();
+//                    cluster->height = 1;
+//                    cluster->is_dense = true;
+                    if(i->indices.size() > MaxClusterSize)
+                    {
+                        MaxClusterIndice = ClusterIndice;
+                        MaxClusterSize = i->indices.size();
+                    }
+                    // ...and save it to disk.
+//                    if (cluster->points.size() <= 0)
+//                        break;
+//                    std::cout << "Cluster " << currentClusterNum << " has " << cluster->points.size() << " points." << std::endl;
+//                    std::string fileName = "cluster" + boost::to_string(currentClusterNum) + ".pcd";
+//                    pcl::io::savePCDFileASCII(fileName, *cluster);
+//
+//                    currentClusterNum++;
+                    ClusterIndice ++;
+                }
+                pcl::PointIndices MaxClusterPointIndice = clusters[MaxClusterIndice];
+//                colored_cloud = clustering.getColoredCloud ();
+                pcl::copyPointCloud(*objects, MaxClusterPointIndice, *banana);
             }
 
         }
-        viewer->updatePointCloud(objects);
+        viewer->updatePointCloud(banana);
         // Display one normal out of 20, as a line of length 3cm.
-        //Fast normal estimation
-//        viewer->removePointCloud("normals");
-//        viewer->addPointCloudNormals<pcl::PointXYZRGB, pcl::Normal>(p_pcl_point_cloud, normals, 20, 0.03, "normals");
+        //show normal estimation
+//        viewer->removePointCloud("normals"r);
+//        viewer->addPointCloudNormals<pcl::PointXYZRGB, pcl::Normal>(objects, normals, 20, 0.03, "normals");
+        //show colored cluster
+//        viewer->updatePointCloud(colored_cloud);
         viewer->spinOnce(10);
+
 
 
     }
