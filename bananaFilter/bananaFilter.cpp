@@ -58,7 +58,6 @@ void Load_PCDFile(void);
 int main(int argc, char * argv[]) try
 {
 
-
     rs2::align align_to(RS2_STREAM_COLOR);
     // Decimation filter reduces the amount of data (while preserving best samples)
     rs2::decimation_filter dec;
@@ -97,6 +96,16 @@ int main(int argc, char * argv[]) try
     // Start streaming with default recommended configuration
     auto profile = pipe.start(cfg);
     auto stream = profile.get_stream(RS2_STREAM_COLOR).as<rs2::video_stream_profile>();
+    // TODO: At the moment the SDK does not offer a closed enum for D400 visual presets
+    auto sensor = profile.get_device().first<rs2::depth_sensor>();
+    // (because they keep changing)
+    // As a work-around we try to find the High-Density preset by name
+    // We do this to reduce the number of black pixels
+    // The hardware can perform hole-filling much better and much more power efficient then our software
+    auto range = sensor.get_option_range(RS2_OPTION_VISUAL_PRESET);
+    for (auto i = range.min; i < range.max; i += range.step)
+        if (std::string(sensor.get_option_value_description(RS2_OPTION_VISUAL_PRESET, i)) == "High Accuracy")
+            sensor.set_option(RS2_OPTION_VISUAL_PRESET, i);
 
     cv::Point_<u_int32_t> left_up(200,100);
     cv::Point_<u_int32_t> right_up(550,100);
@@ -243,7 +252,10 @@ int main(int argc, char * argv[]) try
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr p_pcl_point_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
     // Create the PCL point cloud visualizer
     std::shared_ptr<pcl::visualization::PCLVisualizer> viewer = createRGBVisualizer(p_pcl_point_cloud);
-    viewer->registerKeyboardCallback (keyboardEventOccurred, (void*)&p_pcl_point_cloud);
+    //object for storing the banana cluster
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr banana(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    viewer->registerKeyboardCallback (keyboardEventOccurred, (void*)&banana);
 
 
     while (!viewer->wasStopped() && alive) {
@@ -260,9 +272,7 @@ int main(int argc, char * argv[]) try
         pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
         //object for storing the colored cluster
         pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud;
-        //object for storing the banana cluster
-        pcl::PointCloud<pcl::PointXYZRGB>::Ptr banana(new pcl::PointCloud<pcl::PointXYZRGB>);
-        if(current_frameset)
+         if(current_frameset)
         {
 
             auto depth = current_frameset.get_depth_frame();
