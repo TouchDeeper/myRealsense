@@ -110,6 +110,10 @@ int main(int argc, char * argv[]) try
     rs2::software_device dev;
     auto depth_sensor = dev.add_sensor("Depth");
     depth_sensor.add_read_only_option(RS2_OPTION_DEPTH_UNITS, 0.0001f);
+    
+    //modify the laser power
+    auto laserPowerRange = sensor.get_option_range(RS2_OPTION_LASER_POWER);
+    sensor.set_option(RS2_OPTION_LASER_POWER, laserPowerRange.max);
 
     cv::Point_<u_int32_t> left_up(325,300);
     cv::Point_<u_int32_t> right_up(500,300);
