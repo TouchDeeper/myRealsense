@@ -3,6 +3,7 @@
 
 #include <librealsense2/rs.hpp> // Include RealSense Cross Platform API
 #include <librealsense2/rsutil.h>
+#include <librealsense2/hpp/rs_internal.hpp>
 #include "example.hpp"          // Include short list of convenience functions for rendering
 // This example will require several standard data-structures and algorithms:
 #define _USE_MATH_DEFINES
@@ -106,11 +107,14 @@ int main(int argc, char * argv[]) try
     for (auto i = range.min; i < range.max; i += range.step)
         if (std::string(sensor.get_option_value_description(RS2_OPTION_VISUAL_PRESET, i)) == "High Accuracy")
             sensor.set_option(RS2_OPTION_VISUAL_PRESET, i);
+    rs2::software_device dev;
+    auto depth_sensor = dev.add_sensor("Depth");
+    depth_sensor.add_read_only_option(RS2_OPTION_DEPTH_UNITS, 0.0001f);
 
-    cv::Point_<u_int32_t> left_up(200,100);
-    cv::Point_<u_int32_t> right_up(550,100);
-    cv::Point_<u_int32_t> right_down(550,400);
-    cv::Point_<u_int32_t> left_down(200,400);
+    cv::Point_<u_int32_t> left_up(325,300);
+    cv::Point_<u_int32_t> right_up(500,300);
+    cv::Point_<u_int32_t> right_down(500,370);
+    cv::Point_<u_int32_t> left_down(325,370);
 
 //    cv::Point_<u_int32_t> left_up(0,0);
 //    cv::Point_<u_int32_t> right_up(width,0);
@@ -320,7 +324,7 @@ int main(int argc, char * argv[]) try
             // Use RANSAC method.
             segmentation.setMethodType(pcl::SAC_RANSAC);
             // Set the maximum allowed distance to the model.
-            segmentation.setDistanceThreshold(0.005);
+            segmentation.setDistanceThreshold(0.009);
             // Enable model coefficient refinement (optional).
             segmentation.setOptimizeCoefficients(true);
 
@@ -360,7 +364,7 @@ int main(int argc, char * argv[]) try
                     prism.setInputPlanarHull(convexHull);
                     // First parameter: minimum Z value. Set to 0, segments objects lying on the plane (can be negative).
                     // Second parameter: maximum Z value, set to 10cm. Tune it according to the height of the objects you expect.
-                    prism.setHeightLimits(0.007f, 0.04f);
+                    prism.setHeightLimits(0.00f, 0.04f);
                     pcl::PointIndices::Ptr objectIndices(new pcl::PointIndices);
 
                     prism.segment(*objectIndices);
@@ -370,96 +374,98 @@ int main(int argc, char * argv[]) try
                     extract.filter(*objects);
                 }
                                 /*color filter*/
-                int rMax = 256;
-                int rMin = 50;
-                int gMax = 256;
-                int gMin = 100;
-                int bMax = 100;
-                int bMin = 0;
-                pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr color_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
-                //the point's r value must be less than (LT) 256.
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::LT, rMax)));
-                //the point's r value must be greater than (GT) 200.
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::GT, rMin)));
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::LT, gMax)));
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::GT, gMin)));
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::LT, bMax)));
-                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::GT, bMin)));
-
-                // build the filter
-                pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
-                condrem.setCondition (color_cond);
-                condrem.setInputCloud (objects);
-                condrem.setKeepOrganized(true);
-
-                // apply filter
-                condrem.filter (*objects);
+//                int rMax = 256;
+//                int rMin = 50;
+//                int gMax = 256;
+//                int gMin = 100;
+//                int bMax = 100;
+//                int bMin = 0;
+//                pcl::ConditionAnd<pcl::PointXYZRGB>::Ptr color_cond (new pcl::ConditionAnd<pcl::PointXYZRGB> ());
+//                //the point's r value must be less than (LT) 256.
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::LT, rMax)));
+//                //the point's r value must be greater than (GT) 200.
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("r", pcl::ComparisonOps::GT, rMin)));
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::LT, gMax)));
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("g", pcl::ComparisonOps::GT, gMin)));
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::LT, bMax)));
+//                color_cond->addComparison (pcl::PackedRGBComparison<pcl::PointXYZRGB>::Ptr (new pcl::PackedRGBComparison<pcl::PointXYZRGB> ("b", pcl::ComparisonOps::GT, bMin)));
+//
+//                // build the filter
+//                pcl::ConditionalRemoval<pcl::PointXYZRGB> condrem;
+//                condrem.setCondition (color_cond);
+//                condrem.setInputCloud (objects);
+//                condrem.setKeepOrganized(true);
+//
+//                // apply filter
+//                condrem.filter (*objects);
 
 
                                    /*region growing filter */
-                // kd-tree object for searches.
-                pcl::search::KdTree<pcl::PointXYZRGB>::Ptr regionGrowingTree(new pcl::search::KdTree<pcl::PointXYZRGB>);
-                regionGrowingTree->setInputCloud(objects);
-
-                // Estimate the normals.
-                pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
-                normalEstimation.setInputCloud(objects);
-                normalEstimation.setRadiusSearch(0.03);
-                normalEstimation.setSearchMethod(regionGrowingTree);
-                normalEstimation.compute(*normals);
-
-                // Region growing clustering object.
-                pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> clustering;
-                clustering.setMinClusterSize(200);
-                clustering.setMaxClusterSize(10000);
-                clustering.setSearchMethod(regionGrowingTree);
-                clustering.setNumberOfNeighbours(30);
-                clustering.setInputCloud(objects);
-                clustering.setInputNormals(normals);
-                // Set the angle in radians that will be the smoothness threshold
-                // (the maximum allowable deviation of the normals).
-                clustering.setSmoothnessThreshold(7.0 / 180.0 * M_PI); // 7 degrees.
-                // Set the curvature threshold. The disparity between curvatures will be
-                // tested after the normal deviation check has passed.
-                clustering.setCurvatureThreshold(1.0);
-
-                std::vector <pcl::PointIndices> clusters;
-                clustering.extract(clusters);
-                int MaxClusterIndice = 0;
-                int MaxClusterSize = 0;
-                int ClusterIndice = 0;
-                for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
-                {
-
-//                    // ...add all its points to a new cloud...
-//                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
-//                    for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
-//                        cluster->points.push_back(cloud->points[*point]);
-//                    cluster->width = cluster->points.size();
-//                    cluster->height = 1;
-//                    cluster->is_dense = true;
-                    if(i->indices.size() > MaxClusterSize)
-                    {
-                        MaxClusterIndice = ClusterIndice;
-                        MaxClusterSize = i->indices.size();
-                    }
-                    // ...and save it to disk.
-//                    if (cluster->points.size() <= 0)
-//                        break;
-//                    std::cout << "Cluster " << currentClusterNum << " has " << cluster->points.size() << " points." << std::endl;
-//                    std::string fileName = "cluster" + boost::to_string(currentClusterNum) + ".pcd";
-//                    pcl::io::savePCDFileASCII(fileName, *cluster);
+//                // kd-tree object for searches.
+//                pcl::search::KdTree<pcl::PointXYZRGB>::Ptr regionGrowingTree(new pcl::search::KdTree<pcl::PointXYZRGB>);
+//                regionGrowingTree->setInputCloud(objects);
 //
-//                    currentClusterNum++;
-                    ClusterIndice ++;
-                }
-                pcl::PointIndices MaxClusterPointIndice = clusters[MaxClusterIndice];
-//                colored_cloud = clustering.getColoredCloud ();
-                pcl::copyPointCloud(*objects, MaxClusterPointIndice, *banana);
+//                // Estimate the normals.
+//                pcl::NormalEstimation<pcl::PointXYZRGB, pcl::Normal> normalEstimation;
+//                normalEstimation.setInputCloud(objects);
+//                normalEstimation.setRadiusSearch(0.03);
+//                normalEstimation.setSearchMethod(regionGrowingTree);
+//                normalEstimation.compute(*normals);
+//
+//                // Region growing clustering object.
+//                pcl::RegionGrowing<pcl::PointXYZRGB, pcl::Normal> clustering;
+//                clustering.setMinClusterSize(200);
+//                clustering.setMaxClusterSize(10000);
+//                clustering.setSearchMethod(regionGrowingTree);
+//                clustering.setNumberOfNeighbours(30);
+//                clustering.setInputCloud(objects);
+//                clustering.setInputNormals(normals);
+//                // Set the angle in radians that will be the smoothness threshold
+//                // (the maximum allowable deviation of the normals).
+//                clustering.setSmoothnessThreshold(7.0 / 180.0 * M_PI); // 7 degrees.
+//                // Set the curvature threshold. The disparity between curvatures will be
+//                // tested after the normal deviation check has passed.
+//                clustering.setCurvatureThreshold(1.0);
+//
+//                std::vector <pcl::PointIndices> clusters;
+//                clustering.extract(clusters);
+//                int MaxClusterIndice = 0;
+//                int MaxClusterSize = 0;
+//                int ClusterIndice = 0;
+//                for (std::vector<pcl::PointIndices>::const_iterator i = clusters.begin(); i != clusters.end(); ++i)
+//                {
+//
+////                    // ...add all its points to a new cloud...
+////                    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cluster(new pcl::PointCloud<pcl::PointXYZRGB>);
+////                    for (std::vector<int>::const_iterator point = i->indices.begin(); point != i->indices.end(); point++)
+////                        cluster->points.push_back(cloud->points[*point]);
+////                    cluster->width = cluster->points.size();
+////                    cluster->height = 1;
+////                    cluster->is_dense = true;
+//                    if(i->indices.size() > MaxClusterSize)
+//                    {
+//                        MaxClusterIndice = ClusterIndice;
+//                        MaxClusterSize = i->indices.size();
+//                    }
+//                    // ...and save it to disk.
+////                    if (cluster->points.size() <= 0)
+////                        break;
+////                    std::cout << "Cluster " << currentClusterNum << " has " << cluster->points.size() << " points." << std::endl;
+////                    std::string fileName = "cluster" + boost::to_string(currentClusterNum) + ".pcd";
+////                    pcl::io::savePCDFileASCII(fileName, *cluster);
+////
+////                    currentClusterNum++;
+//                    ClusterIndice ++;
+//                }
+//                pcl::PointIndices MaxClusterPointIndice = clusters[MaxClusterIndice];
+////                colored_cloud = clustering.getColoredCloud ();
+//                pcl::copyPointCloud(*objects, MaxClusterPointIndice, *banana);
+
+
             }
 
         }
-        viewer->updatePointCloud(banana);
+        viewer->updatePointCloud(objects);
         // Display one normal out of 20, as a line of length 3cm.
         //show normal estimation
 //        viewer->removePointCloud("normals"r);
