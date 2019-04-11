@@ -114,11 +114,13 @@ int main(int argc, char * argv[]) try
             sensor.set_option(RS2_OPTION_VISUAL_PRESET, i);
 
     //load customized preset
-//    auto sensor2 = profile.get_device();
-//    std::string jsonPath = "/ShortRangePreset.json";
-//    auto advancedDepthSensor = sensor2.as<rs400::advanced_mode>();
-//    advancedDepthSensor.load_json(jsonPath);
+    auto sensor2 = profile.get_device();
+    auto advancedDepthSensor = sensor2.as<rs400::advanced_mode>();
+    std::ifstream file("./ShortRangePreset.json");
+    std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    advancedDepthSensor.load_json(str);
 
+    //modify the depth units
     rs2::software_device dev;
     auto depth_sensor = dev.add_sensor("Depth");
     depth_sensor.add_read_only_option(RS2_OPTION_DEPTH_UNITS, 0.0001f);
