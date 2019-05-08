@@ -116,7 +116,7 @@ int main(int argc, char * argv[]) try
     //load customized preset
     auto sensor2 = profile.get_device();
     auto advancedDepthSensor = sensor2.as<rs400::advanced_mode>();
-    std::ifstream file("./ShortRangePreset.json");
+    std::ifstream file("./DefaultPreset_D435.json");
     std::string str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     advancedDepthSensor.load_json(str);
 
@@ -129,10 +129,10 @@ int main(int argc, char * argv[]) try
     auto laserPowerRange = sensor.get_option_range(RS2_OPTION_LASER_POWER);
     sensor.set_option(RS2_OPTION_LASER_POWER, laserPowerRange.max);
 
-    cv::Point_<u_int32_t> left_up(325,300);
-    cv::Point_<u_int32_t> right_up(500,300);
-    cv::Point_<u_int32_t> right_down(500,370);
-    cv::Point_<u_int32_t> left_down(325,370);
+    cv::Point_<u_int32_t> left_up(230,150);
+    cv::Point_<u_int32_t> right_up(600,150);
+    cv::Point_<u_int32_t> right_down(600,400);
+    cv::Point_<u_int32_t> left_down(230,400);
 
 //    cv::Point_<u_int32_t> left_up(0,0);
 //    cv::Point_<u_int32_t> right_up(width,0);
@@ -170,7 +170,7 @@ int main(int argc, char * argv[]) try
                     data = data.apply_filter(depth2disparity);
 
                     // Apply spatial filtering
-                    data = data.apply_filter(spat);
+//                    data = data.apply_filter(spat);
 
                     // Apply temporal filtering
                     data = data.apply_filter(temp);
@@ -294,7 +294,7 @@ int main(int argc, char * argv[]) try
         pcl::PointCloud<pcl::Normal>::Ptr normals(new pcl::PointCloud<pcl::Normal>);
         //object for storing the colored cluster
         pcl::PointCloud <pcl::PointXYZRGB>::Ptr colored_cloud;
-         if(current_frameset)
+        if(current_frameset)
         {
 
             auto depth = current_frameset.get_depth_frame();
@@ -398,7 +398,7 @@ int main(int argc, char * argv[]) try
                 int gMin = 100;
 //                int bMax = 100;
 //                int bMin = 0;
-                td::colorFilter(objects,rMin,rMax,gMin,gMax);
+                td::pclib::colorFilter(objects,rMin,rMax,gMin,gMax);
 
 
                                    /*region growing filter */
@@ -462,6 +462,9 @@ int main(int argc, char * argv[]) try
 //                colored_cloud = clustering.getColoredCloud ();
                 pcl::copyPointCloud(*objects, MaxClusterPointIndice, *banana);
 
+                int mean_k = 50;
+                double std_dev_mul_thresh = 0.5;
+                td::pclib::StatisticalFilter(banana, mean_k, std_dev_mul_thresh);
 
             }
 

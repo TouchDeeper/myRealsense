@@ -43,3 +43,11 @@ target_link_libraries(${PROJECT_NAME}
                         ${OpenCV_LIBRARIES}
                         ${PCL_LIBRARIES}
                         ${TdLib_LIBRARIES})
+#pointcloud
+add_executable(banana_filter_sr300 banana_filter_sr300.cpp ../example.hpp)
+target_link_libraries(banana_filter_sr300
+        ${DEPENDENCIES}
+        Threads::Threads
+        ${OpenCV_LIBRARIES}
+        ${PCL_LIBRARIES}
+        ${TdLib_LIBRARIES})
